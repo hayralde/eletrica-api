@@ -84,18 +84,20 @@ async function findAvailableSlot(client, matricula, desiredDateISO) {
    tabelas ainda estiverem vazias na primeira vez que o servidor sobe.
 ========================================================= */
 const USERS_SEED = [
-  {matricula:"779", nome:"ADRIEL SODRE DOS SANTOS"},
-  {matricula:"254", nome:"CARLOS JOSE BARBOSA DA SILVA"},
-  {matricula:"848", nome:"DIONATAN GONCALVES DA SILVA"},
-  {matricula:"88",  nome:"EDSON CARLOS SCATOLIN"},
-  {matricula:"707", nome:"JADSON SAMPAIO DA SILVA"},
-  {matricula:"888", nome:"LEANDRO SOUZA SARAIVA"},
-  {matricula:"719", nome:"LUCAS SOARES DE OLIVEIRA DOS SANTOS"},
-  {matricula:"229", nome:"MARCIO IDEIGLAN DA CONCEICAO SILVA"},
-  {matricula:"884", nome:"NIBSON MACENA DA SILVA"},
-  {matricula:"195", nome:"VALTER JOSE DA SILVA CANDIDO"},
-  {matricula:"241", nome:"VANDERLEY DA GAMA FERREIRA"}
+  {matricula:"779", nome:"ADRIEL SODRE DOS SANTOS", turno:"A"},
+  {matricula:"254", nome:"CARLOS JOSE BARBOSA DA SILVA", turno:"B"},
+  {matricula:"848", nome:"DIONATAN GONCALVES DA SILVA", turno:"B"},
+  {matricula:"88",  nome:"EDSON CARLOS SCATOLIN", turno:"B"},
+  {matricula:"707", nome:"JADSON SAMPAIO DA SILVA", turno:"C"},
+  {matricula:"888", nome:"LEANDRO SOUZA SARAIVA", turno:"C"},
+  {matricula:"719", nome:"LUCAS SOARES DE OLIVEIRA DOS SANTOS", turno:"A"},
+  {matricula:"229", nome:"MARCIO IDEIGLAN DA CONCEICAO SILVA", turno:"A"},
+  {matricula:"884", nome:"NIBSON MACENA DA SILVA", turno:"B"},
+  {matricula:"195", nome:"VALTER JOSE DA SILVA CANDIDO", turno:"C"},
+  {matricula:"241", nome:"VANDERLEY DA GAMA FERREIRA", turno:"A"}
 ];
+
+const CHECKLIST_DESC = "Check - list";
 
 const FOLGA_DATA_MESES = {"2026-08":{"779":["","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","",""],"254":["","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","",""],"848":["F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F"],"88":["","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","",""],"707":["","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","",""],"888":["","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","",""],"719":["","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","",""],"229":["","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","",""],"884":["","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","",""],"195":["","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F",""],"241":["F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F"]},"2026-09":{"779":["","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","",""],"254":["F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","",""],"848":["","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F"],"88":["","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","",""],"707":["F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","",""],"888":["","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","",""],"719":["","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","",""],"229":["","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","",""],"884":["","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","",""],"195":["","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F",""],"241":["","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F"]},"2026-10":{"779":["","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","",""],"254":["F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F"],"848":["","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F",""],"88":["","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","",""],"707":["F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F"],"888":["","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","",""],"719":["","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","",""],"229":["","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","",""],"884":["","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","",""],"195":["","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","",""],"241":["","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F",""]},"2026-11":{"779":["","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","",""],"254":["","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F"],"848":["","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F",""],"88":["","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","",""],"707":["","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F"],"888":["","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","",""],"719":["F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","",""],"229":["","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","",""],"884":["","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","",""],"195":["","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","",""],"241":["","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F",""]},"2026-12":{"779":["","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","",""],"254":["","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F",""],"848":["","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","",""],"88":["","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","",""],"707":["","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F",""],"888":["","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","",""],"719":["F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F"],"229":["","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","",""],"884":["","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","","",""],"195":["","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","","",""],"241":["","","","","F","","","","","","F","","","","","","F","","","","","","F","","","","","","F","",""]}};
 
@@ -168,10 +170,12 @@ async function initDb() {
       CREATE TABLE IF NOT EXISTS eletrica.colaboradores (
         matricula   TEXT PRIMARY KEY,
         nome        TEXT NOT NULL,
+        turno       TEXT,
         pontos      INTEGER NOT NULL DEFAULT 0,
         concluidas  INTEGER NOT NULL DEFAULT 0,
         atrasadas   INTEGER NOT NULL DEFAULT 0
       );
+      ALTER TABLE eletrica.colaboradores ADD COLUMN IF NOT EXISTS turno TEXT;
 
       CREATE TABLE IF NOT EXISTS eletrica.folgas (
         id         SERIAL PRIMARY KEY,
@@ -191,10 +195,13 @@ async function initDb() {
         prazo_final      DATE,
         data_conclusao   DATE,
         penalizada       BOOLEAN NOT NULL DEFAULT FALSE,
+        is_checklist     BOOLEAN NOT NULL DEFAULT FALSE,
         criada_em        TIMESTAMPTZ NOT NULL DEFAULT now()
       );
+      ALTER TABLE eletrica.tarefas ADD COLUMN IF NOT EXISTS is_checklist BOOLEAN NOT NULL DEFAULT FALSE;
       CREATE INDEX IF NOT EXISTS idx_tarefas_matricula ON eletrica.tarefas(matricula);
       CREATE INDEX IF NOT EXISTS idx_tarefas_status ON eletrica.tarefas(status);
+      CREATE INDEX IF NOT EXISTS idx_tarefas_data_programada ON eletrica.tarefas(data_programada);
 
       INSERT INTO eletrica.config (chave, valor) VALUES ('admin_password', 'admin123')
         ON CONFLICT (chave) DO NOTHING;
@@ -205,9 +212,9 @@ async function initDb() {
     console.log('[init] Verificando colaboradores...');
     for (const u of USERS_SEED) {
       await client.query(
-        `INSERT INTO eletrica.colaboradores (matricula, nome) VALUES ($1,$2)
-         ON CONFLICT (matricula) DO UPDATE SET nome = EXCLUDED.nome`,
-        [u.matricula, u.nome]
+        `INSERT INTO eletrica.colaboradores (matricula, nome, turno) VALUES ($1,$2,$3)
+         ON CONFLICT (matricula) DO UPDATE SET nome = EXCLUDED.nome, turno = EXCLUDED.turno`,
+        [u.matricula, u.nome, u.turno]
       );
     }
 
@@ -277,17 +284,38 @@ async function checkOverdue(client) {
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 
+// Garante que todo colaborador que não está de folga hoje tenha a tarefa
+// automática "Check - list" do dia (não depende de distribuição pelo admin).
+// Idempotente: só cria se ainda não existir para aquele colaborador/dia.
+async function ensureChecklistTasks(client) {
+  const today = todayISO();
+  await client.query(
+    `INSERT INTO eletrica.tarefas (descricao, status, matricula, data_programada, prazo_final, is_checklist)
+     SELECT $2, 'atribuida', c.matricula, $1::date, $1::date, true
+     FROM eletrica.colaboradores c
+     WHERE NOT EXISTS (
+       SELECT 1 FROM eletrica.folgas f WHERE f.matricula = c.matricula AND f.data = $1::date
+     )
+     AND NOT EXISTS (
+       SELECT 1 FROM eletrica.tarefas t
+       WHERE t.matricula = c.matricula AND t.data_programada = $1::date AND t.is_checklist = true
+     )`,
+    [today, CHECKLIST_DESC]
+  );
+}
+
 // Estado completo do app: colaboradores, tarefas e escala de folga.
 app.get('/api/state', async (req, res) => {
   const client = await pool.connect();
   try {
+    await ensureChecklistTasks(client);
     await checkOverdue(client);
 
     const { rows: colaboradores } = await client.query(
-      `SELECT matricula, nome, pontos, concluidas, atrasadas FROM eletrica.colaboradores ORDER BY nome`
+      `SELECT matricula, nome, turno, pontos, concluidas, atrasadas FROM eletrica.colaboradores ORDER BY turno, nome`
     );
     const { rows: tarefas } = await client.query(
-      `SELECT id, os, descricao, status, matricula,
+      `SELECT id, os, descricao, status, matricula, is_checklist AS "isChecklist",
               to_char(data_programada,'YYYY-MM-DD') AS "scheduledDate",
               to_char(prazo_final,'YYYY-MM-DD') AS "dueDate",
               to_char(data_conclusao,'YYYY-MM-DD') AS "completedDate"
@@ -448,6 +476,9 @@ app.post('/api/tasks/reset', async (req, res) => {
     }
 
     await client.query('BEGIN');
+    // Check-lists são geradas automaticamente todo dia — apaga em vez de "despendurar",
+    // elas voltam sozinhas na próxima vez que o app carregar o estado.
+    await client.query(`DELETE FROM eletrica.tarefas WHERE is_checklist = true`);
     await client.query(
       `UPDATE eletrica.tarefas
        SET status = 'pendente', matricula = NULL, data_programada = NULL,

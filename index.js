@@ -28,6 +28,56 @@ function todayISO() {
   const d = new Date();
   return d.toISOString().slice(0, 10);
 }
+function addDaysISO(dateISO, n) {
+  const d = new Date(dateISO + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+function epochDay(dateISO) {
+  return Math.floor(new Date(dateISO + 'T00:00:00Z').getTime() / 86400000);
+}
+// "Período" = bloco fixo de 2 dias corridos (não alinhado ao mês).
+// Isso garante blocos consistentes mesmo virando mês/ano.
+function periodStartISO(dateISO) {
+  const ed = epochDay(dateISO);
+  const periodIdx = Math.floor(ed / 2);
+  return new Date(periodIdx * 2 * 86400000).toISOString().slice(0, 10);
+}
+
+// Encontra a próxima data disponível para o colaborador a partir da data desejada,
+// respeitando: (1) no máximo 2 tarefas por período de 2 dias, (2) não pode ser dia de folga.
+// Se o período pedido já estiver cheio (ou os 2 dias do período forem de folga),
+// avança automaticamente para o período seguinte — e assim por diante.
+async function findAvailableSlot(client, matricula, desiredDateISO) {
+  let periodISO = periodStartISO(desiredDateISO);
+  const hoje = todayISO();
+  for (let i = 0; i < 400; i++) { // limite de segurança (~2 anos de períodos)
+    const day1 = periodISO;
+    const day2 = addDaysISO(day1, 1);
+
+    const { rows: cnt } = await client.query(
+      `SELECT COUNT(*)::int AS n FROM eletrica.tarefas
+       WHERE matricula = $1 AND data_programada IN ($2,$3) AND status IN ('atribuida','concluida','atrasada')`,
+      [matricula, day1, day2]
+    );
+
+    if (cnt[0].n < 2) {
+      const candidates = (desiredDateISO === day1 || desiredDateISO === day2)
+        ? [desiredDateISO, desiredDateISO === day1 ? day2 : day1]
+        : [day1, day2];
+      for (const cand of candidates) {
+        if (cand < hoje) continue;
+        const { rows: folga } = await client.query(
+          `SELECT 1 FROM eletrica.folgas WHERE matricula = $1 AND data = $2`,
+          [matricula, cand]
+        );
+        if (folga.length === 0) return cand;
+      }
+    }
+    periodISO = addDaysISO(periodISO, 2);
+  }
+  return null;
+}
 
 /* =========================================================
    DADOS INICIAIS (mesmos que você enviou) — usados só se as
@@ -272,31 +322,53 @@ app.post('/api/admin/login', async (req, res) => {
   res.status(401).json({ ok: false, error: 'Senha incorreta.' });
 });
 
+// Cadastrar uma nova atividade/OS no banco de tarefas (fica pendente até ser distribuída)
+app.post('/api/tasks', async (req, res) => {
+  try {
+    const { os, descricao, adminPassword } = req.body || {};
+    const real = await getAdminPassword();
+    if (!real || adminPassword !== real) {
+      return res.status(401).json({ error: 'Senha de administrador inválida.' });
+    }
+    if (!descricao || !String(descricao).trim()) {
+      return res.status(400).json({ error: 'Descrição da atividade é obrigatória.' });
+    }
+    let osValue = null;
+    if (os !== undefined && os !== null && os !== '') {
+      const parsed = parseInt(os, 10);
+      if (!Number.isFinite(parsed)) return res.status(400).json({ error: 'Número da OS/SS inválido.' });
+      osValue = parsed;
+    }
+    const { rows } = await pool.query(
+      `INSERT INTO eletrica.tarefas (os, descricao, status) VALUES ($1,$2,'pendente') RETURNING id`,
+      [osValue, String(descricao).trim()]
+    );
+    res.json({ ok: true, id: rows[0].id });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao salvar atividade.' });
+  }
+});
+
 // Atribuir uma tarefa a um colaborador (ação do admin)
 app.post('/api/tasks/:id/assign', async (req, res) => {
   const client = await pool.connect();
   try {
     const { id } = req.params;
-    const { matricula, scheduledDate, dueDate, adminPassword } = req.body || {};
+    const { matricula, scheduledDate, adminPassword } = req.body || {};
 
     const real = await getAdminPassword();
     if (!real || adminPassword !== real) {
       return res.status(401).json({ error: 'Senha de administrador inválida.' });
     }
-    if (!matricula || !scheduledDate || !dueDate) {
+    if (!matricula || !scheduledDate) {
       return res.status(400).json({ error: 'Dados incompletos.' });
     }
-    if (dueDate < scheduledDate) {
-      return res.status(400).json({ error: 'O prazo final não pode ser antes da data de programação.' });
-    }
 
-    const { rows: folgaCheck } = await client.query(
-      `SELECT 1 FROM eletrica.folgas WHERE matricula = $1 AND data = $2`,
-      [matricula, scheduledDate]
+    const { rows: colabCheck } = await client.query(
+      `SELECT 1 FROM eletrica.colaboradores WHERE matricula = $1`, [matricula]
     );
-    if (folgaCheck.length > 0) {
-      return res.status(409).json({ error: 'Este colaborador está de folga nessa data.' });
-    }
+    if (colabCheck.length === 0) return res.status(404).json({ error: 'Colaborador não encontrado.' });
 
     const { rows: taskRows } = await client.query(`SELECT status FROM eletrica.tarefas WHERE id = $1`, [id]);
     if (taskRows.length === 0) return res.status(404).json({ error: 'Tarefa não encontrada.' });
@@ -304,13 +376,20 @@ app.post('/api/tasks/:id/assign', async (req, res) => {
       return res.status(409).json({ error: 'Essa tarefa já foi distribuída.' });
     }
 
+    // Acha a próxima data disponível (respeita folga e o limite de 2 tarefas por período de 2 dias).
+    const finalSched = await findAvailableSlot(client, matricula, scheduledDate);
+    if (!finalSched) {
+      return res.status(409).json({ error: 'Não foi possível encontrar uma data disponível para esse colaborador.' });
+    }
+    const finalDue = addDaysISO(finalSched, 2);
+
     await client.query(
       `UPDATE eletrica.tarefas
        SET status = 'atribuida', matricula = $1, data_programada = $2, prazo_final = $3
        WHERE id = $4`,
-      [matricula, scheduledDate, dueDate, id]
+      [matricula, finalSched, finalDue, id]
     );
-    res.json({ ok: true });
+    res.json({ ok: true, scheduledDate: finalSched, dueDate: finalDue });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao atribuir tarefa.' });

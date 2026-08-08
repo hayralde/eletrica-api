@@ -435,6 +435,39 @@ app.post('/api/tasks/:id/complete', async (req, res) => {
   }
 });
 
+// Reseta a distribuição: todas as tarefas voltam a "pendente" (sem responsável,
+// sem datas) e os colaboradores voltam a zero pontos/concluídas/atrasadas.
+// Uso pensado para a fase de testes/desenvolvimento do site.
+app.post('/api/tasks/reset', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const { adminPassword } = req.body || {};
+    const real = await getAdminPassword();
+    if (!real || adminPassword !== real) {
+      return res.status(401).json({ error: 'Senha de administrador inválida.' });
+    }
+
+    await client.query('BEGIN');
+    await client.query(
+      `UPDATE eletrica.tarefas
+       SET status = 'pendente', matricula = NULL, data_programada = NULL,
+           prazo_final = NULL, data_conclusao = NULL, penalizada = FALSE`
+    );
+    await client.query(
+      `UPDATE eletrica.colaboradores SET pontos = 0, concluidas = 0, atrasadas = 0`
+    );
+    await client.query('COMMIT');
+
+    res.json({ ok: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao resetar a distribuição.' });
+  } finally {
+    client.release();
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 initDb()
   .then(() => {
